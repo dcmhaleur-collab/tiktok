@@ -18,6 +18,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build:
@@ -43,3 +44,23 @@ jobs:
 
       - name: EAS build (iOS)
         run: eas build --platform ios --profile production --non-interactive
+
+      - name: Download IPA (latest iOS build)
+        id: download_ipa
+        continue-on-error: true
+        run: eas build:download --platform ios --non-interactive
+
+      - name: Upload IPA as GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: |
+            *.ipa
+            **/*.ipa
+          if-no-files-found: ignore
+
+      - name: Expo builds (download IPA if artifact empty)
+        if: success()
+        run: |
+          echo "Build dashboard (pick latest iOS → Download):"
+          echo "https://expo.dev/accounts/zfqqfqfqf/projects/tiktok/builds"
