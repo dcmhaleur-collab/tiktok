@@ -61,8 +61,13 @@ jobs:
           echo "Using $TARGET=$XCODE_PATH scheme=$SCHEME"
 
       - name: Build for device (no code signing)
+        id: ios_build
         run: |
+          set -euo pipefail
           cd ios
+          DERIVED="$RUNNER_TEMP/DerivedData"
+          OUT="$RUNNER_TEMP/ios-out"
+          mkdir -p "$OUT"
           if [ "${{ steps.xcode.outputs.target }}" = "workspace" ]; then
             XCODE_TARGET=(-workspace "${{ steps.xcode.outputs.path }}")
           else
@@ -74,21 +79,58 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -derivedDataPath "$DERIVED" \
             build \
+            BUILD_DIR="$OUT" \
+            SYMROOT="$OUT" \
+            CONFIGURATION_BUILD_DIR="$OUT/Release-iphoneos" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             ONLY_ACTIVE_ARCH=NO
+          echo "derived=$DERIVED" >> "$GITHUB_OUTPUT"
+          echo "out=$OUT" >> "$GITHUB_OUTPUT"
 
       - name: Package IPA
         run: |
-          APP="$(find "$RUNNER_TEMP/DerivedData" "$GITHUB_WORKSPACE/ios/build" -name '*.app' -type d 2>/dev/null | head -1)"
+          set -euo pipefail
+          cd ios
+          DERIVED="${{ steps.ios_build.outputs.derived }}"
+          OUT="${{ steps.ios_build.outputs.out }}"
+          if [ "${{ steps.xcode.outputs.target }}" = "workspace" ]; then
+            XCODE_TARGET=(-workspace "${{ steps.xcode.outputs.path }}")
+          else
+            XCODE_TARGET=(-project "${{ steps.xcode.outputs.path }}")
+          fi
+          BUILT_PRODUCTS_DIR="$(xcodebuild "${XCODE_TARGET[@]}" \
+            -scheme "${{ steps.xcode.outputs.scheme }}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$DERIVED" \
+            -showBuildSettings 2>/dev/null \
+            | grep "BUILT_PRODUCTS_DIR" | tail -1 | sed 's/.*= *//')"
+          WRAPPER_NAME="$(xcodebuild "${XCODE_TARGET[@]}" \
+            -scheme "${{ steps.xcode.outputs.scheme }}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$DERIVED" \
+            -showBuildSettings 2>/dev/null \
+            | grep "WRAPPER_NAME" | tail -1 | sed 's/.*= *//')"
+          APP=""
+          if [ -n "$BUILT_PRODUCTS_DIR" ] && [ -n "$WRAPPER_NAME" ] && [ -d "$BUILT_PRODUCTS_DIR/$WRAPPER_NAME" ]; then
+            APP="$BUILT_PRODUCTS_DIR/$WRAPPER_NAME"
+          fi
           if [ -z "$APP" ]; then
-            echo "No .app found after build"
-            find "$RUNNER_TEMP/DerivedData" -type d 2>/dev/null | head -40
+            APP="$(find "$DERIVED" "$OUT" "$GITHUB_WORKSPACE/ios" -path '*Release-iphoneos/*.app' -type d 2>/dev/null | head -1)"
+          fi
+          if [ -z "$APP" ]; then
+            APP="$(find "$DERIVED" "$OUT" "$GITHUB_WORKSPACE/ios" -name '*.app' -type d 2>/dev/null | head -1)"
+          fi
+          if [ -z "$APP" ]; then
+            echo "No .app found. BUILT_PRODUCTS_DIR=$BUILT_PRODUCTS_DIR WRAPPER_NAME=$WRAPPER_NAME"
+            find "$DERIVED" "$OUT" -maxdepth 6 -type d 2>/dev/null | head -60
             exit 1
           fi
           echo "Packaging: $APP"
