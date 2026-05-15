@@ -83,9 +83,7 @@ jobs:
           set -eo pipefail
           cd ios
           DERIVED="$RUNNER_TEMP/DerivedData"
-          OUT="$RUNNER_TEMP/ios-out"
           LOG="$RUNNER_TEMP/xcodebuild.log"
-          mkdir -p "$OUT"
           if [ "${{ steps.xcode.outputs.target }}" = "workspace" ]; then
             XCODE_TARGET=(-workspace "${{ steps.xcode.outputs.path }}")
           else
@@ -100,9 +98,6 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$DERIVED" \
             build \
-            BUILD_DIR="$OUT" \
-            SYMROOT="$OUT" \
-            CONFIGURATION_BUILD_DIR="$OUT/Release-iphoneos" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
@@ -119,14 +114,12 @@ jobs:
             exit "$BUILD_EXIT"
           fi
           echo "derived=$DERIVED" >> "$GITHUB_OUTPUT"
-          echo "out=$OUT" >> "$GITHUB_OUTPUT"
 
       - name: Package IPA
         run: |
           set -euo pipefail
           cd ios
           DERIVED="${{ steps.ios_build.outputs.derived }}"
-          OUT="${{ steps.ios_build.outputs.out }}"
           if [ "${{ steps.xcode.outputs.target }}" = "workspace" ]; then
             XCODE_TARGET=(-workspace "${{ steps.xcode.outputs.path }}")
           else
@@ -151,14 +144,14 @@ jobs:
             APP="$BUILT_PRODUCTS_DIR/$WRAPPER_NAME"
           fi
           if [ -z "$APP" ]; then
-            APP="$(find "$DERIVED" "$OUT" "$GITHUB_WORKSPACE/ios" -path '*Release-iphoneos/*.app' -type d 2>/dev/null | head -1)"
+            APP="$(find "$DERIVED" "$GITHUB_WORKSPACE/ios" -path '*Release-iphoneos/*.app' -type d 2>/dev/null | head -1)"
           fi
           if [ -z "$APP" ]; then
-            APP="$(find "$DERIVED" "$OUT" "$GITHUB_WORKSPACE/ios" -name '*.app' -type d 2>/dev/null | head -1)"
+            APP="$(find "$DERIVED" "$GITHUB_WORKSPACE/ios" -name '*.app' -type d 2>/dev/null | head -1)"
           fi
           if [ -z "$APP" ]; then
             echo "No .app found. BUILT_PRODUCTS_DIR=$BUILT_PRODUCTS_DIR WRAPPER_NAME=$WRAPPER_NAME"
-            find "$DERIVED" "$OUT" -maxdepth 6 -type d 2>/dev/null | head -60
+            find "$DERIVED" -maxdepth 8 -type d 2>/dev/null | head -60
             exit 1
           fi
           echo "Packaging: $APP"
