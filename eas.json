@@ -16,6 +16,13 @@
         "simulator": false
       }
     },
+    "sideload": {
+      "distribution": "internal",
+      "ios": {
+        "credentialsSource": "local",
+        "simulator": false
+      }
+    },
     "production": {}
   },
   "submit": {

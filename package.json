@@ -8,7 +8,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:ios": "eas build --platform ios --profile production",
-    "build:ios:preview": "eas build --platform ios --profile preview"
+    "build:ios:preview": "eas build --platform ios --profile preview",
+    "build:ios:sideload": "eas build --platform ios --profile sideload"
   },
   "dependencies": {
     "expo": "~54.0.33",
