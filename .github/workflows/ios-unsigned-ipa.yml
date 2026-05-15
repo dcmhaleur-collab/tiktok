@@ -33,6 +33,12 @@ jobs:
           cd ios
           pod install
 
+      - name: Configure Node for Xcode scripts
+        run: |
+          echo "export NODE_BINARY=$(command -v node)" > ios/.xcode.env.local
+          echo "export ENTRY_FILE=index.ts" >> ios/.xcode.env.local
+          cat ios/.xcode.env.local
+
       - name: Resolve Xcode project and scheme
         id: xcode
         run: |
@@ -71,19 +77,21 @@ jobs:
           echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
           echo "Using $TARGET=$XCODE_PATH scheme=$SCHEME (not a Pods scheme)"
 
-      - name: Build for device (no code signing)
+      - name: Build for device (ad-hoc sign, TrollStore-friendly)
         id: ios_build
         run: |
-          set -euo pipefail
+          set -eo pipefail
           cd ios
           DERIVED="$RUNNER_TEMP/DerivedData"
           OUT="$RUNNER_TEMP/ios-out"
+          LOG="$RUNNER_TEMP/xcodebuild.log"
           mkdir -p "$OUT"
           if [ "${{ steps.xcode.outputs.target }}" = "workspace" ]; then
             XCODE_TARGET=(-workspace "${{ steps.xcode.outputs.path }}")
           else
             XCODE_TARGET=(-project "${{ steps.xcode.outputs.path }}")
           fi
+          set +e
           xcodebuild \
             "${XCODE_TARGET[@]}" \
             -scheme "${{ steps.xcode.outputs.scheme }}" \
@@ -95,12 +103,21 @@ jobs:
             BUILD_DIR="$OUT" \
             SYMROOT="$OUT" \
             CONFIGURATION_BUILD_DIR="$OUT/Release-iphoneos" \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            ONLY_ACTIVE_ARCH=NO
+            ONLY_ACTIVE_ARCH=NO \
+            2>&1 | tee "$LOG"
+          BUILD_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [ "$BUILD_EXIT" -ne 0 ]; then
+            echo "=== xcodebuild errors ==="
+            grep -E "error:|fatal error:|BUILD FAILED" "$LOG" | tail -40 || tail -80 "$LOG"
+            exit "$BUILD_EXIT"
+          fi
           echo "derived=$DERIVED" >> "$GITHUB_OUTPUT"
           echo "out=$OUT" >> "$GITHUB_OUTPUT"
 
