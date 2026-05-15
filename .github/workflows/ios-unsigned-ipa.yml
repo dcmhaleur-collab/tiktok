@@ -33,38 +33,44 @@ jobs:
           cd ios
           pod install
 
-      - name: Resolve Xcode workspace and scheme
+      - name: Resolve Xcode project and scheme
         id: xcode
         run: |
           cd ios
-          WS="$(ls -1 *.xcworkspace 2>/dev/null | head -1)"
+          PROJ="$(ls -1 *.xcodeproj 2>/dev/null | head -1)"
+          WS=""
+          for w in *.xcworkspace; do
+            [ -f "$w/contents.xcworkspacedata" ] && WS="$w" && break
+          done
           if [ -n "$WS" ]; then
             SCHEME="$(xcodebuild -list -workspace "$WS" | awk '/Schemes:/{f=1;next} f&&NF{print $1; exit}')"
-          else
-            PROJ="$(ls -1 *.xcodeproj 2>/dev/null | head -1)"
+            TARGET=workspace
+            XCODE_PATH="$WS"
+          elif [ -n "$PROJ" ]; then
             SCHEME="$(xcodebuild -list -project "$PROJ" | awk '/Schemes:/{f=1;next} f&&NF{print $1; exit}')"
+            TARGET=project
+            XCODE_PATH="$PROJ"
           fi
           if [ -z "$SCHEME" ]; then
             ls -la
-            xcodebuild -list || true
             exit 1
           fi
-          echo "workspace=${WS:-}" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "path=$XCODE_PATH" >> "$GITHUB_OUTPUT"
           echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
-          echo "Using workspace=${WS:-none} scheme=$SCHEME"
+          echo "Using $TARGET=$XCODE_PATH scheme=$SCHEME"
 
       - name: Archive (no code signing)
         run: |
           cd ios
-          XCODE_ARGS=(-scheme "${{ steps.xcode.outputs.scheme }}" -configuration Release)
-          if [ -n "${{ steps.xcode.outputs.workspace }}" ]; then
-            XCODE_ARGS=(-workspace "${{ steps.xcode.outputs.workspace }}" "${XCODE_ARGS[@]}")
+          if [ "${{ steps.xcode.outputs.target }}" = "workspace" ]; then
+            XCODE_TARGET=(-workspace "${{ steps.xcode.outputs.path }}")
           else
-            PROJ="$(ls -1 *.xcodeproj | head -1)"
-            XCODE_ARGS=(-project "$PROJ" "${XCODE_ARGS[@]}")
+            XCODE_TARGET=(-project "${{ steps.xcode.outputs.path }}")
           fi
           xcodebuild \
-            "${XCODE_ARGS[@]}" \
+            "${XCODE_TARGET[@]}" \
+            -scheme "${{ steps.xcode.outputs.scheme }}" \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/tiktok.xcarchive" \
