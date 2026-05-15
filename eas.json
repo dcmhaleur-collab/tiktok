@@ -16,6 +16,13 @@
         "simulator": false
       }
     },
+    "ipa": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "withoutCredentials": true
+      }
+    },
     "sideload": {
       "distribution": "internal",
       "ios": {

@@ -43,17 +43,17 @@ jobs:
       - name: Verify Expo auth
         run: eas whoami
 
-      - name: EAS build (iOS)
+      - name: EAS build (IPA, no Expo-managed Apple credentials)
         id: eas_ios
-        run: eas build --platform ios --profile production --non-interactive
+        run: eas build --platform ios --profile ipa --non-interactive --wait
 
-      - name: If iOS build failed (signing / Apple)
+      - name: If iOS build failed
         if: failure() && steps.eas_ios.outcome == 'failure'
         run: |
-          echo "Typical fix: complete Apple signing once so EAS stores credentials."
-          echo "On your PC: eas login (or EXPO_TOKEN), then: eas build --platform ios --profile production"
-          echo "Sign in with your Apple ID when prompted, or add App Store Connect API key to Expo."
-          echo "Docs: https://docs.expo.dev/build-reference/ios-credentials/"
+          echo "Profile ipa uses withoutCredentials. If it fails, build locally:"
+          echo "  npm run build:ipa"
+          echo "Then install with Sideloadly / AltStore using your Apple ID."
+          echo "https://expo.dev/accounts/zfqqfqfqf/projects/tiktok/builds"
 
       - name: Download IPA (latest iOS build)
         id: download_ipa
