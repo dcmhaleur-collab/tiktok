@@ -6,7 +6,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:ios": "eas build --platform ios --profile production",
+    "build:ios:preview": "eas build --platform ios --profile preview"
   },
   "dependencies": {
     "expo": "~54.0.33",
@@ -16,6 +18,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "eas-cli": "^18.13.0",
     "typescript": "~5.9.2"
   },
   "private": true

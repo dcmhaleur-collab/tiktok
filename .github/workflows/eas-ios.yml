@@ -1,0 +1,45 @@
+# Build iOS (IPA) via Expo EAS in the cloud.
+#
+# Setup (once):
+# 1. expo.dev → Account → Access tokens → create token → GitHub repo → Settings → Secrets → EXPO_TOKEN
+# 2. Locally: npx eas login && npx eas init  (adds extra.eas.projectId in app.json — commit that file)
+# 3. Run at least one iOS build locally or configure credentials on expo.dev so CI can sign builds
+#
+name: EAS iOS build
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: eas-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Expo / EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS build (iOS)
+        run: eas build --platform ios --profile production --non-interactive
