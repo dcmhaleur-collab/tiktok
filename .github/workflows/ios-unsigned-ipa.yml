@@ -60,7 +60,7 @@ jobs:
           echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
           echo "Using $TARGET=$XCODE_PATH scheme=$SCHEME"
 
-      - name: Archive (no code signing)
+      - name: Build for device (no code signing)
         run: |
           cd ios
           if [ "${{ steps.xcode.outputs.target }}" = "workspace" ]; then
@@ -72,23 +72,26 @@ jobs:
             "${XCODE_TARGET[@]}" \
             -scheme "${{ steps.xcode.outputs.scheme }}" \
             -configuration Release \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/tiktok.xcarchive" \
-            archive \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            ONLY_ACTIVE_ARCH=NO
 
       - name: Package IPA
         run: |
-          APP="$(find "$RUNNER_TEMP/tiktok.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
+          APP="$(find "$RUNNER_TEMP/DerivedData" "$GITHUB_WORKSPACE/ios/build" -name '*.app' -type d 2>/dev/null | head -1)"
           if [ -z "$APP" ]; then
-            echo "No .app found in archive"
-            find "$RUNNER_TEMP/tiktok.xcarchive" -type d
+            echo "No .app found after build"
+            find "$RUNNER_TEMP/DerivedData" -type d 2>/dev/null | head -40
             exit 1
           fi
+          echo "Packaging: $APP"
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
           cd "$RUNNER_TEMP/ipa"
