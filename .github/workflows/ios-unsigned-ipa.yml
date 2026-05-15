@@ -36,29 +36,40 @@ jobs:
       - name: Resolve Xcode project and scheme
         id: xcode
         run: |
+          set -euo pipefail
           cd ios
+          SCHEME="tiktok"
           PROJ="$(ls -1 *.xcodeproj 2>/dev/null | head -1)"
           WS=""
           for w in *.xcworkspace; do
             [ -f "$w/contents.xcworkspacedata" ] && WS="$w" && break
           done
+          list_schemes() {
+            if [ -n "$WS" ]; then
+              xcodebuild -list -workspace "$WS"
+            else
+              xcodebuild -list -project "$PROJ"
+            fi | awk '/Schemes:/{f=1;next} f&&NF{print $1}'
+          }
+          if ! list_schemes | grep -qx "$SCHEME"; then
+            echo "Scheme '$SCHEME' not found. Available schemes:"
+            list_schemes
+            exit 1
+          fi
           if [ -n "$WS" ]; then
-            SCHEME="$(xcodebuild -list -workspace "$WS" | awk '/Schemes:/{f=1;next} f&&NF{print $1; exit}')"
             TARGET=workspace
             XCODE_PATH="$WS"
           elif [ -n "$PROJ" ]; then
-            SCHEME="$(xcodebuild -list -project "$PROJ" | awk '/Schemes:/{f=1;next} f&&NF{print $1; exit}')"
             TARGET=project
             XCODE_PATH="$PROJ"
-          fi
-          if [ -z "$SCHEME" ]; then
+          else
             ls -la
             exit 1
           fi
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
           echo "path=$XCODE_PATH" >> "$GITHUB_OUTPUT"
           echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
-          echo "Using $TARGET=$XCODE_PATH scheme=$SCHEME"
+          echo "Using $TARGET=$XCODE_PATH scheme=$SCHEME (not a Pods scheme)"
 
       - name: Build for device (no code signing)
         id: ios_build
