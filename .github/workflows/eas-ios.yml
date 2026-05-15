@@ -43,9 +43,9 @@ jobs:
       - name: Verify Expo auth
         run: eas whoami
 
-      - name: EAS build (IPA, no Expo-managed Apple credentials)
+      - name: EAS build (iOS / IPA)
         id: eas_ios
-        run: eas build --platform ios --profile ipa --non-interactive --wait
+        run: eas build --platform ios --profile preview --non-interactive --wait
 
       - name: If iOS build failed
         if: failure() && steps.eas_ios.outcome == 'failure'
